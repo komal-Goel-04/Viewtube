@@ -257,13 +257,13 @@ const getCurrentUser = asyncHandler ( async (req, res) => {
 
     return res
     .status(200)
-    .json(
+    .json(new apiResponse(
         200,
         {
             user
         },
         "current user fetched successfully"
-    )
+    ))
 } )
 
 const updateAccountDetails = asyncHandler ( async (req, res) => {
@@ -319,13 +319,13 @@ const updateUserAvatar = asyncHandler ( async (req, res) => {
 
     return res
     .status(200)
-    .json(
+    .json( new apiResponse(
         200,
         {
             user
         },
         "avatar updated successfully"
-    )
+    ))
 } )
 
 const updateUserCoverImage = asyncHandler ( async (req, res) => {
@@ -351,12 +351,88 @@ const updateUserCoverImage = asyncHandler ( async (req, res) => {
 
     return res
     .status(200)
-    .json(
+    .json( new apiResponse(
         200,
         {
             user
         },
         "avatar updated successfully"
+    ))
+} )
+
+const getUserChannelProfile = asyncHandler ( async (req, res) => {
+    const {userName} = req.params
+
+    if(!userName)
+        throw new apiError(400, "Username is missing");
+
+    const channel = await User.aggregate([
+        //getting one document
+        {
+            $match: {
+                userName: userName?.toLowerCase()
+            }
+        },
+        //finding subscribers of your channel
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        // finding whom you have subscribed to
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        //finding no. of subscribers and total channels you have subscribed
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                //for button subscribe and subscribed
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                userName: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+            }
+        }
+    ])
+
+    console.log("channel : ", channel)
+
+    if(!channel?.length() === 0)
+        throw new apiError(404, "channel doesn't exists")
+
+    return res
+    .status(200)
+    .json(
+        new apiResponse(200, channel[0], "User channel fetched successfully")
     )
 } )
 
@@ -370,5 +446,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile
 }
