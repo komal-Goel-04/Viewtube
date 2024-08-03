@@ -460,6 +460,7 @@ const getWatchHistory = asyncHandler ( async (req, res) => {
     // console.log(req.user._id)
     const user = await User.aggregate([
         {
+            //find which users watch history is needed
             $match: {
                 _id: new mongoose.Types.ObjectId(req.user._id)
             }
