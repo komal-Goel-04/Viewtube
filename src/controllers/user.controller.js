@@ -4,6 +4,7 @@ import { apiResponse } from "../utils/apiResponse.js"
 import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 
 const registerUser = asyncHandler( async ( req, res ) => {
@@ -20,6 +21,7 @@ const registerUser = asyncHandler( async ( req, res ) => {
     // console.log("request.body : ", req.body);
 
     const { fullName, email, password, userName } = req.body
+    // console.log(req.body)
 
     //for validation u can write if cond for every field
     // if(fullName === "")
@@ -57,6 +59,8 @@ const registerUser = asyncHandler( async ( req, res ) => {
     const avatar = await uploadOnCloudinary(avatarLocalPath);
     const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
+    // console.log("avatar url : ",avatar)
+
     //again check whether avatar is uploaded properly on cloudinary
     if(!avatar)
         throw new apiError(400, " Avatar is required ");
@@ -76,6 +80,8 @@ const registerUser = asyncHandler( async ( req, res ) => {
         "-password -refreshToken"
     )
 
+    // console.log(createdUser)
+
     if(!createdUser)
         throw new apiError(500, "something went wrong while registering the user")
     
@@ -90,6 +96,8 @@ const generateAccessandRefreshToken = async (userId) => {
         const user = await User.findById(userId)
         const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
+
+        // console.log("access token controller : ", accessToken)
 
         user.refreshToken = refreshToken
         await user.save({ validateBeforeSave : false })
@@ -112,6 +120,7 @@ const loginUser = asyncHandler( async( req, res ) => {
     // send response
 
     const { userName, email, password } = req.body
+    // console.log("password fetched from req.body : ",password)
 
     // console.log(userName);
 
@@ -194,22 +203,27 @@ const logoutUser = asyncHandler( async ( req, res ) => {
 
 const refreshAccessToken = asyncHandler( async (req, res) => {
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+    console.log("incoming refresh token : ", incomingRefreshToken)
 
     if(!incomingRefreshToken)
         throw new apiError(401, "Unauthorized request")
 
     try {
         const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
-    
+        // console.log("decoded token : ", decodedToken)
+
         const user = await User.findById(decodedToken?._id)
     
         if(!user)
             throw new apiError(401, "Invalid refresh token")
     
+        // console.log("users refresh token : ", user?.refreshToken)
         if(incomingRefreshToken !== user?.refreshToken)
             throw new apiError(401, "refresh token is expired or used");
     
         const {newAccessToken, newRefreshToken } = await generateAccessandRefreshToken(user._id)
+
+        // console.log("new access token : ", newAccessToken)
     
         const options = { 
             httpOnly: true,
@@ -238,7 +252,11 @@ const refreshAccessToken = asyncHandler( async (req, res) => {
 const changeUserPassword = asyncHandler ( async (req, res) => {
     const { oldPassword, newPassword } = req.body
 
+    // console.log("oldPassword : ", oldPassword);
+    // console.log("newPassword : ", newPassword);
+
     const user = await User.findById(req.user?._id)
+    // console.log("user : ", user);
     const ispasswordcorrect = await user.isPasswordCorrect(oldPassword)
 
     if(!ispasswordcorrect)
@@ -253,7 +271,7 @@ const changeUserPassword = asyncHandler ( async (req, res) => {
 } )
 
 const getCurrentUser = asyncHandler ( async (req, res) => {
-    const user = await User.findById(req.user?._id)
+    const user = await User.findById(req.user?._id).select("-password -refreshToken")
 
     return res
     .status(200)
@@ -272,7 +290,7 @@ const updateAccountDetails = asyncHandler ( async (req, res) => {
     if(!fullName && !email)
         throw new apiError(400, "All field are empty")
 
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
@@ -297,7 +315,8 @@ const updateAccountDetails = asyncHandler ( async (req, res) => {
 })
 
 const updateUserAvatar = asyncHandler ( async (req, res) => {
-    const avatarLocalPath = req.files?.path
+    // console.log("req.file : ", req.file)
+    const avatarLocalPath = req.file?.path
 
     if(!avatarLocalPath)
         throw new apiError(400, "Avatar file is missing")
@@ -329,7 +348,7 @@ const updateUserAvatar = asyncHandler ( async (req, res) => {
 } )
 
 const updateUserCoverImage = asyncHandler ( async (req, res) => {
-    const coverImageLocalPath = req.files?.path
+    const coverImageLocalPath = req.file?.path
 
     if(!coverImageLocalPath)
         throw new apiError(400, "Cover image is missing")
@@ -362,6 +381,7 @@ const updateUserCoverImage = asyncHandler ( async (req, res) => {
 
 const getUserChannelProfile = asyncHandler ( async (req, res) => {
     const {userName} = req.params
+    // console.log(userName)
 
     if(!userName)
         throw new apiError(400, "Username is missing");
@@ -426,7 +446,7 @@ const getUserChannelProfile = asyncHandler ( async (req, res) => {
 
     console.log("channel : ", channel)
 
-    if(!channel?.length() === 0)
+    if(!channel?.length === 0)
         throw new apiError(404, "channel doesn't exists")
 
     return res
@@ -437,10 +457,11 @@ const getUserChannelProfile = asyncHandler ( async (req, res) => {
 } )
 
 const getWatchHistory = asyncHandler ( async (req, res) => {
-    const user = User.aggregate([
+    // console.log(req.user._id)
+    const user = await User.aggregate([
         {
             $match: {
-                _id: mongoose.Types.ObjectId(req.user._id)
+                _id: new mongoose.Types.ObjectId(req.user._id)
             }
         },
         {

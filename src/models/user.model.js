@@ -64,11 +64,12 @@ userSchema.pre("save", async function(next) {
 
 //checking password given by user is correct or not
 userSchema.methods.isPasswordCorrect = async function(password) {
+    // console.log("saved password in db : ", this.password)
     return await bcrypt.compare(password, this.password)
 }
 
 userSchema.methods.generateAccessToken = function() {
-    return Jwt.sign(
+    const accessToken =  Jwt.sign(
         {
             _id: this._id,
             email: this.email,
@@ -80,6 +81,8 @@ userSchema.methods.generateAccessToken = function() {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
     )
+    // console.log("access token user model : ", accessToken)
+    return accessToken
 }
 
 userSchema.methods.generateRefreshToken = function() {
