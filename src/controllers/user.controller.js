@@ -2,6 +2,7 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 import { apiError } from "../utils/apiError.js"
 import { apiResponse } from "../utils/apiResponse.js"
 import { User } from "../models/user.model.js"
+import { Video } from "../models/video.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
@@ -508,6 +509,36 @@ const getWatchHistory = asyncHandler ( async (req, res) => {
     )
 } )
 
+const logWatchHistory = asyncHandler ( async (req, res) => {
+    const videoId = req.params.videoId
+
+    if(!videoId || !mongoose.Types.ObjectId.isValid(videoId))
+        throw new apiError(400, "videoId not valid")
+
+    const video = await Video.findById(videoId)
+
+    if(!video)
+        throw new apiError(400, "video doesn't exists")
+
+    const userId = req.user._id
+    const user = await User.findById(userId)
+
+    if (!user.watchHistory.includes(videoId)) {
+        user.watchHistory.push(videoId);
+        await user.save();
+    }
+
+    return res.status(200).json(
+        new apiResponse(
+            200,
+            {
+                watchHistory: user.watchHistory
+            },
+             "checking"
+        )
+    )
+} )
+
 
 export { 
     registerUser, 
@@ -520,5 +551,6 @@ export {
     updateUserAvatar,
     updateUserCoverImage,
     getUserChannelProfile,
-    getWatchHistory
+    getWatchHistory,
+    logWatchHistory
 }
