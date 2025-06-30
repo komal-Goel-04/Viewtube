@@ -28,16 +28,18 @@ const registerUser = asyncHandler( async ( req, res ) => {
     // if(fullName === "")
     //     throw new apiError(400, "fullname is required")
 
+    //empty check
     if( [fullName, email, userName, password].some( (field) => field?.trim() === "" )) 
     {
         throw new apiError(400, "All fields is required")
     }
 
+    //existed user check
     const existedUser = await User.findOne({
         $or: [{ userName }, { email }]
     })
 
-    if(existedUser)
+    if(existedUser) 
     {
         throw new apiError(409, "user with this email or username already exists ")
     }
@@ -160,13 +162,13 @@ const loginUser = asyncHandler( async( req, res ) => {
 
     return res
     .status(200)
-    .cookie("accessToken ", accessToken, options)
-    .cookie("refreshToken ", refreshToken, options)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(
         new apiResponse(
             200, 
             {
-                user: loggedInUser,
+                user: loggedInUser, 
                 accessToken, 
                 refreshToken
             },
@@ -176,6 +178,8 @@ const loginUser = asyncHandler( async( req, res ) => {
 } )
 
 const logoutUser = asyncHandler( async ( req, res ) => {
+    // cookies htao
+    // refresh token v htao
     await User.findByIdAndUpdate(
         req.user._id,
         {
@@ -233,8 +237,8 @@ const refreshAccessToken = asyncHandler( async (req, res) => {
     
         return res
         .status(200)
-        .cookie("accessToken : ", newAccessToken)
-        .cookie("refreshToken : ", newRefreshToken)
+        .cookie("accessToken : ", newAccessToken, options)
+        .cookie("refreshToken : ", newRefreshToken, options)
         .json(
             new apiResponse(
                 200,
@@ -308,7 +312,7 @@ const updateAccountDetails = asyncHandler ( async (req, res) => {
         new apiResponse (
             200, 
             {
-            user
+                user
             },
             "Account details updated successfully"
         )
@@ -335,7 +339,7 @@ const updateUserAvatar = asyncHandler ( async (req, res) => {
             }
         },
         {new: true}
-    ).select("password")
+    ).select("-password")
 
     return res
     .status(200)
@@ -367,7 +371,7 @@ const updateUserCoverImage = asyncHandler ( async (req, res) => {
             }
         },
         {new: true}
-    ).select("password")
+    ).select("-password")
 
     return res
     .status(200)
@@ -376,7 +380,7 @@ const updateUserCoverImage = asyncHandler ( async (req, res) => {
         {
             user
         },
-        "avatar updated successfully"
+        "Cover Image updated successfully"
     ))
 } )
 
@@ -384,7 +388,7 @@ const getUserChannelProfile = asyncHandler ( async (req, res) => {
     const {userName} = req.params
     // console.log(userName)
 
-    if(!userName)
+    if(!userName?.trim())
         throw new apiError(400, "Username is missing");
 
     const channel = await User.aggregate([
@@ -396,11 +400,11 @@ const getUserChannelProfile = asyncHandler ( async (req, res) => {
         },
         //finding subscribers of your channel
         {
-            $lookup: {
-                from: "subscriptions",
-                localField: "_id",
-                foreignField: "channel",
-                as: "subscribers"
+            $lookup: {                      // performs left join
+                from: "subscriptions",      // right table
+                localField: "_id",          // left tables field
+                foreignField: "channel",    // right tables field
+                as: "subscribers"           // output array field
             }
         },
         // finding whom you have subscribed to
