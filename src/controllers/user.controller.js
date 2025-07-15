@@ -234,6 +234,9 @@ const refreshAccessToken = asyncHandler( async (req, res) => {
             httpOnly: true,
             secure: true
         }
+
+        user.refreshToken = newRefreshToken;
+        await user.save();
     
         return res
         .status(200)
